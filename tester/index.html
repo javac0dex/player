@@ -1,0 +1,688 @@
+export default function Page() {
+  return (
+    <html lang="id">
+      <head>
+        <meta charSet="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Custom YouTube Player</title>
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+
+          body {
+            min-height: 100vh;
+            background: linear-gradient(to bottom, #0f172a, #1e293b);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+          }
+
+          .container {
+            width: 100%;
+            max-width: 64rem;
+          }
+
+          .header {
+            margin-bottom: 2rem;
+            text-align: center;
+          }
+
+          .header h1 {
+            font-size: 2.25rem;
+            font-weight: bold;
+            color: white;
+            margin-bottom: 0.5rem;
+          }
+
+          .header p {
+            color: #cbd5e1;
+          }
+
+          .player-container {
+            position: relative;
+            background: black;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            aspect-ratio: 16 / 9;
+          }
+
+          #youtube-player {
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            user-select: none;
+          }
+
+          .protective-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 20;
+          }
+
+          .loading {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+          }
+
+          .loading-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+          }
+
+          .spinner {
+            width: 4rem;
+            height: 4rem;
+            border: 4px solid #475569;
+            border-top-color: #dc2626;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+          }
+
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+
+          .loading-text {
+            color: white;
+            font-size: 0.875rem;
+          }
+
+          .watermark {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            z-index: 50;
+            pointer-events: none;
+          }
+
+          .watermark span {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 0.375rem 0.75rem;
+            border-radius: 0.25rem;
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 600;
+          }
+
+          .play-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.3);
+            z-index: 30;
+            cursor: pointer;
+            transition: background 0.3s;
+          }
+
+          .play-overlay:hover {
+            background: rgba(0, 0, 0, 0.5);
+          }
+
+          .play-overlay.hidden {
+            display: none;
+          }
+
+          .play-btn-large {
+            background: #dc2626;
+            padding: 1.5rem;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s;
+          }
+
+          .play-btn-large:hover {
+            background: #b91c1c;
+          }
+
+          .play-btn-large svg {
+            width: 48px;
+            height: 48px;
+            fill: white;
+            color: white;
+          }
+
+          .controls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent);
+            padding: 1rem;
+            transition: opacity 0.3s;
+            z-index: 40;
+          }
+
+          .controls.hidden {
+            opacity: 0;
+          }
+
+          .progress-container {
+            margin-bottom: 1rem;
+          }
+
+          .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #475569;
+            border-radius: 0.5rem;
+            appearance: none;
+            cursor: pointer;
+            outline: none;
+          }
+
+          .progress-bar::-webkit-slider-thumb {
+            appearance: none;
+            width: 12px;
+            height: 12px;
+            background: #dc2626;
+            border-radius: 50%;
+            cursor: pointer;
+          }
+
+          .progress-bar::-moz-range-thumb {
+            width: 12px;
+            height: 12px;
+            background: #dc2626;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+          }
+
+          .time-display {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: #cbd5e1;
+            margin-top: 0.25rem;
+          }
+
+          .controls-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+          }
+
+          .left-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+          }
+
+          .control-btn {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            padding: 0.25rem;
+            transition: color 0.3s;
+          }
+
+          .control-btn:hover {
+            color: #dc2626;
+          }
+
+          .control-btn svg {
+            width: 24px;
+            height: 24px;
+          }
+
+          .volume-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+          }
+
+          .volume-slider {
+            width: 5rem;
+            height: 4px;
+            background: #475569;
+            border-radius: 0.5rem;
+            appearance: none;
+            cursor: pointer;
+            outline: none;
+          }
+
+          .volume-slider::-webkit-slider-thumb {
+            appearance: none;
+            width: 10px;
+            height: 10px;
+            background: #dc2626;
+            border-radius: 50%;
+            cursor: pointer;
+          }
+
+          .volume-slider::-moz-range-thumb {
+            width: 10px;
+            height: 10px;
+            background: #dc2626;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+          }
+
+          .volume-text {
+            font-size: 0.75rem;
+            color: #cbd5e1;
+            width: 2rem;
+          }
+
+          .info-section {
+            margin-top: 2rem;
+            background: #1e293b;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+          }
+
+          .info-section h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: white;
+            margin-bottom: 0.5rem;
+          }
+
+          .info-section ul {
+            color: #cbd5e1;
+            list-style: none;
+          }
+
+          .info-section li {
+            padding: 0.5rem 0;
+          }
+        `,
+          }}
+        />
+      </head>
+      <body>
+        <div className="container">
+          <div className="header">
+            <h1>Custom YouTube Player</h1>
+            <p>YouTube dengan Kontrol Custom Penuh</p>
+          </div>
+
+          <div className="player-container" id="player-container">
+            <div id="youtube-player"></div>
+            <div className="protective-overlay" id="protective-overlay"></div>
+
+            <div className="loading" id="loading">
+              <div className="loading-content">
+                <div className="spinner"></div>
+                <p className="loading-text">Loading video...</p>
+              </div>
+            </div>
+
+            <div className="watermark">
+              <span>videoplayeryt.com</span>
+            </div>
+
+            <div className="play-overlay" id="play-overlay">
+              <button className="play-btn-large" id="play-btn-large">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <polygon points="5,3 19,12 5,21" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="controls" id="controls">
+              <div className="progress-container">
+                <input
+                  type="range"
+                  className="progress-bar"
+                  id="progress-bar"
+                  min="0"
+                  max="100"
+                  defaultValue="0"
+                />
+                <div className="time-display">
+                  <span id="current-time">0:00</span>
+                  <span id="duration">0:00</span>
+                </div>
+              </div>
+
+              <div className="controls-bar">
+                <div className="left-controls">
+                  <button className="control-btn" id="play-pause-btn" title="Play">
+                    <svg id="play-icon" viewBox="0 0 24 24" fill="currentColor">
+                      <polygon points="5,3 19,12 5,21" />
+                    </svg>
+                    <svg
+                      id="pause-icon"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      style={{ display: "none" }}
+                    >
+                      <rect x="6" y="4" width="4" height="16" />
+                      <rect x="14" y="4" width="4" height="16" />
+                    </svg>
+                  </button>
+
+                  <button className="control-btn" id="skip-back-btn" title="Rewind 10s">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polygon points="19,20 9,12 19,4" fill="currentColor" />
+                      <line x1="5" y1="4" x2="5" y2="20" />
+                    </svg>
+                  </button>
+
+                  <button className="control-btn" id="skip-forward-btn" title="Forward 10s">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polygon points="5,4 15,12 5,20" fill="currentColor" />
+                      <line x1="19" y1="4" x2="19" y2="20" />
+                    </svg>
+                  </button>
+
+                  <div className="volume-container">
+                    <button className="control-btn" id="mute-btn" title="Mute">
+                      <svg id="volume-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polygon points="11,5 6,9 2,9 2,15 6,15 11,19" fill="currentColor" />
+                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                      </svg>
+                      <svg
+                        id="mute-icon"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        style={{ display: "none" }}
+                      >
+                        <polygon points="11,5 6,9 2,9 2,15 6,15 11,19" fill="currentColor" />
+                        <line x1="23" y1="9" x2="17" y2="15" />
+                        <line x1="17" y1="9" x2="23" y2="15" />
+                      </svg>
+                    </button>
+                    <input
+                      type="range"
+                      className="volume-slider"
+                      id="volume-slider"
+                      min="0"
+                      max="100"
+                      defaultValue="100"
+                    />
+                    <span className="volume-text" id="volume-text">
+                      100%
+                    </span>
+                  </div>
+                </div>
+
+                <button className="control-btn" id="fullscreen-btn" title="Fullscreen">
+                  <svg id="maximize-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="15,3 21,3 21,9" />
+                    <polyline points="9,21 3,21 3,15" />
+                    <line x1="21" y1="3" x2="14" y2="10" />
+                    <line x1="3" y1="21" x2="10" y2="14" />
+                  </svg>
+                  <svg
+                    id="minimize-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    style={{ display: "none" }}
+                  >
+                    <polyline points="4,14 10,14 10,20" />
+                    <polyline points="20,10 14,10 14,4" />
+                    <line x1="14" y1="10" x2="21" y2="3" />
+                    <line x1="3" y1="21" x2="10" y2="14" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="info-section">
+            <h2>Fitur Custom Player</h2>
+            <ul>
+              <li>✓ Play/Pause dengan tombol custom</li>
+              <li>✓ Volume control dan mute</li>
+              <li>✓ Progress bar untuk seeking</li>
+              <li>✓ Tombol skip forward/backward (10 detik)</li>
+              <li>✓ Fullscreen mode</li>
+              <li>✓ Kualitas otomatis dari YouTube</li>
+              <li>✓ Klik kanan diblokir - tidak ada akses ke fitur YouTube</li>
+              <li>✓ Overlay transparan melindungi player - penonton hanya bisa menggunakan tombol web Anda</li>
+            </ul>
+          </div>
+        </div>
+
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+          // Variables
+          let player;
+          let isPlaying = false;
+          let isMuted = false;
+          let volume = 100;
+          let duration = 0;
+          let controlsTimeout;
+          let updateInterval;
+
+          // DOM Elements
+          const playerContainer = document.getElementById('player-container');
+          const loading = document.getElementById('loading');
+          const playOverlay = document.getElementById('play-overlay');
+          const playBtnLarge = document.getElementById('play-btn-large');
+          const controls = document.getElementById('controls');
+          const progressBar = document.getElementById('progress-bar');
+          const currentTimeEl = document.getElementById('current-time');
+          const durationEl = document.getElementById('duration');
+          const playPauseBtn = document.getElementById('play-pause-btn');
+          const playIcon = document.getElementById('play-icon');
+          const pauseIcon = document.getElementById('pause-icon');
+          const skipBackBtn = document.getElementById('skip-back-btn');
+          const skipForwardBtn = document.getElementById('skip-forward-btn');
+          const muteBtn = document.getElementById('mute-btn');
+          const volumeIcon = document.getElementById('volume-icon');
+          const muteIcon = document.getElementById('mute-icon');
+          const volumeSlider = document.getElementById('volume-slider');
+          const volumeText = document.getElementById('volume-text');
+          const fullscreenBtn = document.getElementById('fullscreen-btn');
+          const maximizeIcon = document.getElementById('maximize-icon');
+          const minimizeIcon = document.getElementById('minimize-icon');
+          const protectiveOverlay = document.getElementById('protective-overlay');
+
+          // Format time helper
+          function formatTime(seconds) {
+            if (!seconds || isNaN(seconds)) return '0:00';
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            
+            if (hours > 0) {
+              return hours + ':' + String(minutes).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+            }
+            return minutes + ':' + String(secs).padStart(2, '0');
+          }
+
+          // Load YouTube IFrame API
+          const tag = document.createElement('script');
+          tag.src = 'https://www.youtube.com/iframe_api';
+          const firstScriptTag = document.getElementsByTagName('script')[0];
+          firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+          // YouTube API Ready
+          window.onYouTubeIframeAPIReady = function() {
+            player = new YT.Player('youtube-player', {
+              height: '100%',
+              width: '100%',
+              videoId: '79UZWTkYlgg',
+              playerVars: {
+                controls: 0,
+                fs: 0,
+                iv_load_policy: 3,
+                modestbranding: 1,
+                rel: 0,
+                disablekb: 1
+              },
+              events: {
+                onReady: onPlayerReady,
+                onStateChange: onPlayerStateChange
+              }
+            });
+          };
+
+          function onPlayerReady(event) {
+            loading.style.display = 'none';
+            duration = player.getDuration();
+            progressBar.max = duration;
+            durationEl.textContent = formatTime(duration);
+            volume = player.getVolume();
+            volumeSlider.value = volume;
+            volumeText.textContent = volume + '%';
+          }
+
+          function onPlayerStateChange(event) {
+            if (event.data === YT.PlayerState.PLAYING) {
+              isPlaying = true;
+              playOverlay.classList.add('hidden');
+              playIcon.style.display = 'none';
+              pauseIcon.style.display = 'block';
+              
+              clearInterval(updateInterval);
+              updateInterval = setInterval(function() {
+                const currentTime = player.getCurrentTime();
+                progressBar.value = currentTime;
+                currentTimeEl.textContent = formatTime(currentTime);
+              }, 100);
+            } else {
+              isPlaying = false;
+              if (event.data !== YT.PlayerState.BUFFERING) {
+                playOverlay.classList.remove('hidden');
+              }
+              playIcon.style.display = 'block';
+              pauseIcon.style.display = 'none';
+              clearInterval(updateInterval);
+            }
+          }
+
+          // Play/Pause
+          function togglePlayPause() {
+            if (!player) return;
+            if (isPlaying) {
+              player.pauseVideo();
+            } else {
+              player.playVideo();
+            }
+          }
+
+          playBtnLarge.addEventListener('click', togglePlayPause);
+          playPauseBtn.addEventListener('click', togglePlayPause);
+
+          // Skip
+          skipBackBtn.addEventListener('click', function() {
+            if (player) {
+              player.seekTo(player.getCurrentTime() - 10);
+            }
+          });
+
+          skipForwardBtn.addEventListener('click', function() {
+            if (player) {
+              player.seekTo(player.getCurrentTime() + 10);
+            }
+          });
+
+          // Volume
+          muteBtn.addEventListener('click', function() {
+            if (!player) return;
+            if (isMuted) {
+              player.unMute();
+              isMuted = false;
+              volumeIcon.style.display = 'block';
+              muteIcon.style.display = 'none';
+              volumeText.textContent = volume + '%';
+            } else {
+              player.mute();
+              isMuted = true;
+              volumeIcon.style.display = 'none';
+              muteIcon.style.display = 'block';
+              volumeText.textContent = '0%';
+            }
+          });
+
+          volumeSlider.addEventListener('input', function() {
+            if (!player) return;
+            volume = parseInt(this.value);
+            player.setVolume(volume);
+            volumeText.textContent = volume + '%';
+            if (volume > 0 && isMuted) {
+              player.unMute();
+              isMuted = false;
+              volumeIcon.style.display = 'block';
+              muteIcon.style.display = 'none';
+            }
+          });
+
+          // Progress
+          progressBar.addEventListener('input', function() {
+            if (player) {
+              player.seekTo(parseFloat(this.value));
+            }
+          });
+
+          // Fullscreen
+          fullscreenBtn.addEventListener('click', function() {
+            if (!document.fullscreenElement) {
+              playerContainer.requestFullscreen();
+            } else {
+              document.exitFullscreen();
+            }
+          });
+
+          document.addEventListener('fullscreenchange', function() {
+            if (document.fullscreenElement) {
+              maximizeIcon.style.display = 'none';
+              minimizeIcon.style.display = 'block';
+            } else {
+              maximizeIcon.style.display = 'block';
+              minimizeIcon.style.display = 'none';
+            }
+          });
+
+          // Show/Hide controls
+          playerContainer.addEventListener('mousemove', function() {
+            controls.classList.remove('hidden');
+            clearTimeout(controlsTimeout);
+            if (isPlaying) {
+              controlsTimeout = setTimeout(function() {
+                controls.classList.add('hidden');
+              }, 3000);
+            }
+          });
+
+          playerContainer.addEventListener('mouseleave', function() {
+            if (isPlaying) {
+              controls.classList.add('hidden');
+            }
+          });
+
+          // Prevent right click
+          playerContainer.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+          });
+
+          // Click on overlay to play/pause
+          protectiveOverlay.addEventListener('click', togglePlayPause);
+        `,
+          }}
+        />
+      </body>
+    </html>
+  )
+}
