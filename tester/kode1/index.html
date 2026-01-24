@@ -1,0 +1,747 @@
+export default function VideoPlayer() {
+  return (
+    <html lang="id">
+      <head>
+        <meta charSet="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Custom YouTube Player</title>
+        <style dangerouslySetInnerHTML={{ __html: `
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+
+          body {
+            min-height: 100vh;
+            background: linear-gradient(to bottom, #0f172a, #1e293b);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            font-family: system-ui, -apple-system, sans-serif;
+          }
+
+          .container {
+            width: 100%;
+            max-width: 64rem;
+          }
+
+          .header {
+            margin-bottom: 2rem;
+            text-align: center;
+          }
+
+          .header h1 {
+            font-size: 2.25rem;
+            font-weight: bold;
+            color: white;
+            margin-bottom: 0.5rem;
+          }
+
+          .header p {
+            color: #cbd5e1;
+          }
+
+          .player-container {
+            position: relative;
+            background: black;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            aspect-ratio: 16 / 9;
+          }
+
+          #youtube-player {
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            user-select: none;
+          }
+
+          .protective-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 20;
+          }
+
+          .loading {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+          }
+
+          .loading-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+          }
+
+          .spinner {
+            width: 4rem;
+            height: 4rem;
+            border: 4px solid #475569;
+            border-top-color: #dc2626;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+          }
+
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+
+          .loading-text {
+            color: white;
+            font-size: 0.875rem;
+          }
+
+          .watermark {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            z-index: 50;
+            pointer-events: none;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 0.375rem 0.75rem;
+            border-radius: 0.25rem;
+          }
+
+          .watermark span {
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 600;
+          }
+
+          .play-overlay {
+            position: absolute;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.3);
+            z-index: 30;
+            cursor: pointer;
+            border: none;
+          }
+
+          .play-overlay:hover {
+            background: rgba(0, 0, 0, 0.5);
+          }
+
+          .play-overlay.visible {
+            display: flex;
+          }
+
+          .play-button-large {
+            background: #dc2626;
+            padding: 1.5rem;
+            border-radius: 50%;
+            transition: background 0.2s;
+          }
+
+          .play-overlay:hover .play-button-large {
+            background: #b91c1c;
+          }
+
+          .controls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent);
+            padding: 1rem;
+            z-index: 40;
+            opacity: 1;
+            transition: opacity 0.3s;
+          }
+
+          .controls.hidden {
+            opacity: 0;
+          }
+
+          .progress-container {
+            margin-bottom: 1rem;
+          }
+
+          .progress-bar {
+            width: 100%;
+            height: 0.25rem;
+            background: #475569;
+            border-radius: 0.5rem;
+            appearance: none;
+            cursor: pointer;
+          }
+
+          .progress-bar::-webkit-slider-thumb {
+            appearance: none;
+            width: 12px;
+            height: 12px;
+            background: #dc2626;
+            border-radius: 50%;
+            cursor: pointer;
+          }
+
+          .progress-bar::-moz-range-thumb {
+            width: 12px;
+            height: 12px;
+            background: #dc2626;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+          }
+
+          .time-display {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: #cbd5e1;
+            margin-top: 0.25rem;
+          }
+
+          .control-buttons {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+          }
+
+          .left-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+          }
+
+          .control-btn {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            padding: 0.25rem;
+            transition: color 0.2s;
+          }
+
+          .control-btn:hover {
+            color: #dc2626;
+          }
+
+          .control-btn svg {
+            width: 24px;
+            height: 24px;
+          }
+
+          .volume-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+          }
+
+          .volume-slider {
+            width: 5rem;
+            height: 0.25rem;
+            background: #475569;
+            border-radius: 0.5rem;
+            appearance: none;
+            cursor: pointer;
+          }
+
+          .volume-slider::-webkit-slider-thumb {
+            appearance: none;
+            width: 10px;
+            height: 10px;
+            background: #dc2626;
+            border-radius: 50%;
+            cursor: pointer;
+          }
+
+          .volume-slider::-moz-range-thumb {
+            width: 10px;
+            height: 10px;
+            background: #dc2626;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+          }
+
+          .volume-text {
+            font-size: 0.75rem;
+            color: #cbd5e1;
+            width: 2rem;
+          }
+
+          .info-section {
+            margin-top: 2rem;
+            background: #1e293b;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+          }
+
+          .info-section h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: white;
+            margin-bottom: 0.5rem;
+          }
+
+          .info-section ul {
+            color: #cbd5e1;
+            list-style: none;
+          }
+
+          .info-section li {
+            padding: 0.25rem 0;
+          }
+
+          .access-denied {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: #0f172a;
+            color: white;
+            align-items: center;
+            justify-content: center;
+            font-family: system-ui;
+            z-index: 9999;
+          }
+
+          .access-denied.visible {
+            display: flex;
+          }
+        `}} />
+      </head>
+      <body>
+        <div id="access-denied" className="access-denied">
+          <h1>Access Denied</h1>
+        </div>
+
+        <div className="container">
+          <div className="header">
+            <h1>Custom YouTube Player</h1>
+            <p>YouTube dengan Kontrol Custom Penuh</p>
+          </div>
+
+          <div id="player-container" className="player-container">
+            <div id="youtube-player"></div>
+            <div className="protective-overlay" id="overlay"></div>
+
+            <div id="loading" className="loading">
+              <div className="loading-content">
+                <div className="spinner"></div>
+                <p className="loading-text">Loading video...</p>
+              </div>
+            </div>
+
+            <div className="watermark">
+              <span>videoplayeryt.com</span>
+            </div>
+
+            <button id="play-overlay" className="play-overlay visible">
+              <div className="play-button-large">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="2">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+              </div>
+            </button>
+
+            <div id="controls" className="controls">
+              <div className="progress-container">
+                <input type="range" id="progress" className="progress-bar" min="0" max="100" value="0" />
+                <div className="time-display">
+                  <span id="current-time">0:00</span>
+                  <span id="duration">0:00</span>
+                </div>
+              </div>
+
+              <div className="control-buttons">
+                <div className="left-controls">
+                  <button id="play-btn" className="control-btn" title="Play">
+                    <svg id="play-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                    <svg id="pause-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ display: 'none' }}>
+                      <rect x="6" y="4" width="4" height="16"></rect>
+                      <rect x="14" y="4" width="4" height="16"></rect>
+                    </svg>
+                  </button>
+
+                  <button id="skip-back" className="control-btn" title="Rewind 10s">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polygon points="19 20 9 12 19 4 19 20"></polygon>
+                      <line x1="5" y1="19" x2="5" y2="5"></line>
+                    </svg>
+                  </button>
+
+                  <button id="skip-forward" className="control-btn" title="Forward 10s">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polygon points="5 4 15 12 5 20 5 4"></polygon>
+                      <line x1="19" y1="5" x2="19" y2="19"></line>
+                    </svg>
+                  </button>
+
+                  <div className="volume-controls">
+                    <button id="mute-btn" className="control-btn" title="Mute">
+                      <svg id="volume-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                      </svg>
+                      <svg id="mute-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ display: 'none' }}>
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                        <line x1="23" y1="9" x2="17" y2="15"></line>
+                        <line x1="17" y1="9" x2="23" y2="15"></line>
+                      </svg>
+                    </button>
+                    <input type="range" id="volume" className="volume-slider" min="0" max="100" value="100" />
+                    <span id="volume-text" className="volume-text">100%</span>
+                  </div>
+                </div>
+
+                <button id="fullscreen-btn" className="control-btn" title="Fullscreen">
+                  <svg id="fullscreen-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="15 3 21 3 21 9"></polyline>
+                    <polyline points="9 21 3 21 3 15"></polyline>
+                    <line x1="21" y1="3" x2="14" y2="10"></line>
+                    <line x1="3" y1="21" x2="10" y2="14"></line>
+                  </svg>
+                  <svg id="exit-fullscreen-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ display: 'none' }}>
+                    <polyline points="4 14 10 14 10 20"></polyline>
+                    <polyline points="20 10 14 10 14 4"></polyline>
+                    <line x1="14" y1="10" x2="21" y2="3"></line>
+                    <line x1="3" y1="21" x2="10" y2="14"></line>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="info-section">
+            <h2>Fitur Custom Player</h2>
+            <ul>
+              <li>&#10003; Play/Pause dengan tombol custom</li>
+              <li>&#10003; Volume control dan mute</li>
+              <li>&#10003; Progress bar untuk seeking</li>
+              <li>&#10003; Tombol skip forward/backward (10 detik)</li>
+              <li>&#10003; Fullscreen mode</li>
+              <li>&#10003; Kualitas otomatis dari YouTube</li>
+              <li>&#10003; Klik kanan diblokir</li>
+              <li>&#10003; Overlay transparan melindungi player</li>
+              <li>&#10003; F12 dan shortcut DevTools diblokir</li>
+              <li>&#10003; Deteksi DevTools - halaman otomatis tertutup</li>
+            </ul>
+          </div>
+        </div>
+
+        <script dangerouslySetInnerHTML={{ __html: `
+          // Variables
+          var player;
+          var isPlaying = false;
+          var isMuted = false;
+          var volume = 100;
+          var duration = 0;
+          var controlsTimeout;
+          var updateInterval;
+
+          // DOM Elements
+          var playerContainer = document.getElementById('player-container');
+          var loadingEl = document.getElementById('loading');
+          var playOverlay = document.getElementById('play-overlay');
+          var controls = document.getElementById('controls');
+          var playBtn = document.getElementById('play-btn');
+          var playIcon = document.getElementById('play-icon');
+          var pauseIcon = document.getElementById('pause-icon');
+          var skipBack = document.getElementById('skip-back');
+          var skipForward = document.getElementById('skip-forward');
+          var muteBtn = document.getElementById('mute-btn');
+          var volumeIcon = document.getElementById('volume-icon');
+          var muteIcon = document.getElementById('mute-icon');
+          var volumeSlider = document.getElementById('volume');
+          var volumeText = document.getElementById('volume-text');
+          var progressBar = document.getElementById('progress');
+          var currentTimeEl = document.getElementById('current-time');
+          var durationEl = document.getElementById('duration');
+          var fullscreenBtn = document.getElementById('fullscreen-btn');
+          var fullscreenIcon = document.getElementById('fullscreen-icon');
+          var exitFullscreenIcon = document.getElementById('exit-fullscreen-icon');
+          var overlay = document.getElementById('overlay');
+          var accessDenied = document.getElementById('access-denied');
+
+          // Block DevTools keyboard shortcuts
+          function blockDevToolsKeys(e) {
+            // F12
+            if (e.key === 'F12' || e.keyCode === 123) {
+              e.preventDefault();
+              e.stopPropagation();
+              return false;
+            }
+            // Ctrl+Shift+I
+            if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.keyCode === 73)) {
+              e.preventDefault();
+              e.stopPropagation();
+              return false;
+            }
+            // Ctrl+Shift+J
+            if (e.ctrlKey && e.shiftKey && (e.key === 'J' || e.key === 'j' || e.keyCode === 74)) {
+              e.preventDefault();
+              e.stopPropagation();
+              return false;
+            }
+            // Ctrl+Shift+C
+            if (e.ctrlKey && e.shiftKey && (e.key === 'C' || e.key === 'c' || e.keyCode === 67)) {
+              e.preventDefault();
+              e.stopPropagation();
+              return false;
+            }
+            // Ctrl+U
+            if (e.ctrlKey && (e.key === 'U' || e.key === 'u' || e.keyCode === 85)) {
+              e.preventDefault();
+              e.stopPropagation();
+              return false;
+            }
+            // Cmd+Option+I (Mac)
+            if (e.metaKey && e.altKey && (e.key === 'I' || e.key === 'i' || e.keyCode === 73)) {
+              e.preventDefault();
+              e.stopPropagation();
+              return false;
+            }
+            // Cmd+Option+J (Mac)
+            if (e.metaKey && e.altKey && (e.key === 'J' || e.key === 'j' || e.keyCode === 74)) {
+              e.preventDefault();
+              e.stopPropagation();
+              return false;
+            }
+            // Cmd+Option+C (Mac)
+            if (e.metaKey && e.altKey && (e.key === 'C' || e.key === 'c' || e.keyCode === 67)) {
+              e.preventDefault();
+              e.stopPropagation();
+              return false;
+            }
+            // Cmd+U (Mac)
+            if (e.metaKey && (e.key === 'U' || e.key === 'u' || e.keyCode === 85)) {
+              e.preventDefault();
+              e.stopPropagation();
+              return false;
+            }
+          }
+
+          // Detect DevTools via window size
+          var devToolsOpen = false;
+          var threshold = 160;
+
+          function detectDevTools() {
+            var widthThreshold = window.outerWidth - window.innerWidth > threshold;
+            var heightThreshold = window.outerHeight - window.innerHeight > threshold;
+            
+            if (widthThreshold || heightThreshold) {
+              if (!devToolsOpen) {
+                devToolsOpen = true;
+                window.close();
+                accessDenied.classList.add('visible');
+                document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0f172a;color:white;font-family:system-ui;"><h1>Access Denied</h1></div>';
+                window.location.href = 'about:blank';
+              }
+            } else {
+              devToolsOpen = false;
+            }
+          }
+
+          // Add event listeners for DevTools blocking
+          document.addEventListener('keydown', blockDevToolsKeys, true);
+          window.addEventListener('keydown', blockDevToolsKeys, true);
+          setInterval(detectDevTools, 500);
+
+          // Block right click
+          document.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            return false;
+          });
+
+          // Format time
+          function formatTime(seconds) {
+            if (!seconds || isNaN(seconds)) return '0:00';
+            var hours = Math.floor(seconds / 3600);
+            var minutes = Math.floor((seconds % 3600) / 60);
+            var secs = Math.floor(seconds % 60);
+            
+            if (hours > 0) {
+              return hours + ':' + String(minutes).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+            }
+            return minutes + ':' + String(secs).padStart(2, '0');
+          }
+
+          // Load YouTube API
+          var tag = document.createElement('script');
+          tag.src = 'https://www.youtube.com/iframe_api';
+          var firstScriptTag = document.getElementsByTagName('script')[0];
+          firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+          // YouTube API Ready
+          window.onYouTubeIframeAPIReady = function() {
+            player = new YT.Player('youtube-player', {
+              height: '100%',
+              width: '100%',
+              videoId: 'c7G0npP9jnw',
+              playerVars: {
+                controls: 0,
+                fs: 0,
+                iv_load_policy: 3,
+                modestbranding: 1,
+                rel: 0,
+                disablekb: 1
+              },
+              events: {
+                onReady: onPlayerReady,
+                onStateChange: onPlayerStateChange
+              }
+            });
+          };
+
+          function onPlayerReady(event) {
+            loadingEl.style.display = 'none';
+            duration = player.getDuration();
+            progressBar.max = duration;
+            durationEl.textContent = formatTime(duration);
+            volume = player.getVolume();
+            volumeSlider.value = volume;
+            volumeText.textContent = volume + '%';
+          }
+
+          function onPlayerStateChange(event) {
+            if (event.data === YT.PlayerState.PLAYING) {
+              isPlaying = true;
+              playIcon.style.display = 'none';
+              pauseIcon.style.display = 'block';
+              playOverlay.classList.remove('visible');
+              
+              if (updateInterval) clearInterval(updateInterval);
+              updateInterval = setInterval(function() {
+                var currentTime = player.getCurrentTime();
+                progressBar.value = currentTime;
+                currentTimeEl.textContent = formatTime(currentTime);
+              }, 100);
+            } else {
+              isPlaying = false;
+              playIcon.style.display = 'block';
+              pauseIcon.style.display = 'none';
+              if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.ENDED) {
+                playOverlay.classList.add('visible');
+              }
+              if (updateInterval) clearInterval(updateInterval);
+            }
+          }
+
+          // Play/Pause
+          function togglePlay() {
+            if (!player) return;
+            if (isPlaying) {
+              player.pauseVideo();
+            } else {
+              player.playVideo();
+            }
+          }
+
+          playBtn.addEventListener('click', togglePlay);
+          playOverlay.addEventListener('click', togglePlay);
+          overlay.addEventListener('click', togglePlay);
+
+          // Skip
+          skipBack.addEventListener('click', function() {
+            if (player) {
+              var newTime = player.getCurrentTime() - 10;
+              player.seekTo(newTime);
+            }
+          });
+
+          skipForward.addEventListener('click', function() {
+            if (player) {
+              var newTime = player.getCurrentTime() + 10;
+              player.seekTo(newTime);
+            }
+          });
+
+          // Mute
+          muteBtn.addEventListener('click', function() {
+            if (!player) return;
+            if (isMuted) {
+              player.unMute();
+              isMuted = false;
+              volumeIcon.style.display = 'block';
+              muteIcon.style.display = 'none';
+              volumeSlider.value = volume;
+              volumeText.textContent = volume + '%';
+            } else {
+              player.mute();
+              isMuted = true;
+              volumeIcon.style.display = 'none';
+              muteIcon.style.display = 'block';
+              volumeSlider.value = 0;
+              volumeText.textContent = '0%';
+            }
+          });
+
+          // Volume
+          volumeSlider.addEventListener('input', function(e) {
+            volume = parseInt(e.target.value);
+            if (player) {
+              player.setVolume(volume);
+              if (volume > 0 && isMuted) {
+                player.unMute();
+                isMuted = false;
+                volumeIcon.style.display = 'block';
+                muteIcon.style.display = 'none';
+              }
+            }
+            volumeText.textContent = volume + '%';
+          });
+
+          // Progress
+          progressBar.addEventListener('input', function(e) {
+            var newTime = parseFloat(e.target.value);
+            currentTimeEl.textContent = formatTime(newTime);
+            if (player) {
+              player.seekTo(newTime);
+            }
+          });
+
+          // Fullscreen
+          fullscreenBtn.addEventListener('click', function() {
+            if (!document.fullscreenElement) {
+              playerContainer.requestFullscreen();
+            } else {
+              document.exitFullscreen();
+            }
+          });
+
+          document.addEventListener('fullscreenchange', function() {
+            if (document.fullscreenElement) {
+              fullscreenIcon.style.display = 'none';
+              exitFullscreenIcon.style.display = 'block';
+            } else {
+              fullscreenIcon.style.display = 'block';
+              exitFullscreenIcon.style.display = 'none';
+            }
+          });
+
+          // Controls visibility
+          playerContainer.addEventListener('mousemove', function() {
+            controls.classList.remove('hidden');
+            if (controlsTimeout) clearTimeout(controlsTimeout);
+            if (isPlaying) {
+              controlsTimeout = setTimeout(function() {
+                controls.classList.add('hidden');
+              }, 3000);
+            }
+          });
+
+          playerContainer.addEventListener('mouseleave', function() {
+            if (isPlaying) {
+              controls.classList.add('hidden');
+            }
+          });
+        `}} />
+      </body>
+    </html>
+  );
+}
