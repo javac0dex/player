@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Custom YouTube Player</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      background: linear-gradient(to bottom, #0f172a, #1e293b);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 64rem;
+    }
+
+    .header {
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 2.25rem;
+      font-weight: bold;
+      color: white;
+      margin-bottom: 0.5rem;
+    }
+
+    .header p {
+      color: #cbd5e1;
+    }
+
+    .player-container {
+      position: relative;
+      background: black;
+      border-radius: 0.5rem;
+      overflow: hidden;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      aspect-ratio: 16 / 9;
+    }
+
+    #youtube-player {
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .protective-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+    }
+
+    .loading {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+
+    .loading.hidden {
+      display: none;
+    }
+
+    .loading-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .spinner {
+      width: 4rem;
+      height: 4rem;
+      border: 4px solid #475569;
+      border-top-color: #dc2626;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      color: white;
+      font-size: 0.875rem;
+    }
+
+    .watermark {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      z-index: 50;
+      pointer-events: none;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 0.375rem 0.75rem;
+      border-radius: 0.25rem;
+    }
+
+    .watermark span {
+      color: white;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .play-overlay {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.3);
+      z-index: 30;
+      cursor: pointer;
+      border: none;
+    }
+
+    .play-overlay:hover {
+      background: rgba(0, 0, 0, 0.5);
+    }
+
+    .play-overlay.visible {
+      display: flex;
+    }
+
+    .play-button-large {
+      background: #dc2626;
+      padding: 1.5rem;
+      border-radius: 50%;
+      transition: background 0.2s;
+    }
+
+    .play-overlay:hover .play-button-large {
+      background: #b91c1c;
+    }
+
+    .controls {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent);
+      padding: 1rem;
+      z-index: 40;
+      opacity: 1;
+      transition: opacity 0.3s;
+    }
+
+    .controls.hidden {
+      opacity: 0;
+    }
+
+    .progress-container {
+      margin-bottom: 1rem;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 0.25rem;
+      background: #475569;
+      border-radius: 0.5rem;
+      -webkit-appearance: none;
+      appearance: none;
+      cursor: pointer;
+    }
+
+    .progress-bar::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 12px;
+      height: 12px;
+      background: #dc2626;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    .progress-bar::-moz-range-thumb {
+      width: 12px;
+      height: 12px;
+      background: #dc2626;
+      border-radius: 50%;
+      cursor: pointer;
+      border: none;
+    }
+
+    .time-display {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: #cbd5e1;
+      margin-top: 0.25rem;
+    }
+
+    .control-buttons {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .left-controls {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .control-btn {
+      background: none;
+      border: none;
+      color: white;
+      cursor: pointer;
+      padding: 0.25rem;
+      transition: color 0.2s;
+    }
+
+    .control-btn:hover {
+      color: #dc2626;
+    }
+
+    .control-btn svg {
+      width: 24px;
+      height: 24px;
+    }
+
+    .volume-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .volume-slider {
+      width: 5rem;
+      height: 0.25rem;
+      background: #475569;
+      border-radius: 0.5rem;
+      -webkit-appearance: none;
+      appearance: none;
+      cursor: pointer;
+    }
+
+    .volume-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 10px;
+      height: 10px;
+      background: #dc2626;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    .volume-slider::-moz-range-thumb {
+      width: 10px;
+      height: 10px;
+      background: #dc2626;
+      border-radius: 50%;
+      cursor: pointer;
+      border: none;
+    }
+
+    .volume-text {
+      font-size: 0.75rem;
+      color: #cbd5e1;
+      width: 2rem;
+    }
+
+    .info-section {
+      margin-top: 2rem;
+      background: #1e293b;
+      border-radius: 0.5rem;
+      padding: 1.5rem;
+    }
+
+    .info-section h2 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: white;
+      margin-bottom: 0.5rem;
+    }
+
+    .info-section ul {
+      color: #cbd5e1;
+      list-style: none;
+    }
+
+    .info-section li {
+      padding: 0.25rem 0;
+    }
+
+    .access-denied {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #0f172a;
+      color: white;
+      align-items: center;
+      justify-content: center;
+      font-family: system-ui;
+      z-index: 9999;
+      flex-direction: column;
+    }
+
+    .access-denied.visible {
+      display: flex;
+    }
+
+    .right-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .settings-container {
+      position: relative;
+    }
+
+    .settings-menu {
+      position: absolute;
+      bottom: 100%;
+      right: 0;
+      margin-bottom: 0.5rem;
+      background: rgba(28, 28, 28, 0.95);
+      border-radius: 0.5rem;
+      overflow: hidden;
+      min-width: 180px;
+      display: none;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    }
+
+    .settings-menu.visible {
+      display: block;
+    }
+
+    .settings-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      cursor: pointer;
+    }
+
+    .settings-header:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .settings-header svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .settings-header span {
+      color: white;
+      font-size: 0.875rem;
+    }
+
+    .quality-menu {
+      display: none;
+    }
+
+    .quality-menu.visible {
+      display: block;
+    }
+
+    .quality-back {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      cursor: pointer;
+      color: white;
+      font-size: 0.875rem;
+    }
+
+    .quality-back:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .quality-back svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .quality-option {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.625rem 1rem;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .quality-option:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .quality-option.active {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .quality-label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: white;
+      font-size: 0.875rem;
+    }
+
+    .quality-badge {
+      background: #dc2626;
+      color: white;
+      font-size: 0.625rem;
+      padding: 0.125rem 0.375rem;
+      border-radius: 0.25rem;
+      font-weight: 600;
+    }
+
+    .quality-check {
+      color: #dc2626;
+      width: 18px;
+      height: 18px;
+      display: none;
+    }
+
+    .quality-option.active .quality-check {
+      display: block;
+    }
+
+    .current-quality {
+      font-size: 0.625rem;
+      color: #94a3b8;
+      margin-left: 0.25rem;
+    }
+
+    .subscribe-modal {
+      display: flex;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.95);
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      padding: 1rem;
+    }
+
+    .subscribe-modal.hidden {
+      display: none;
+    }
+
+    .subscribe-content {
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      border-radius: 1rem;
+      padding: 2rem;
+      max-width: 500px;
+      text-align: center;
+      border: 2px solid #dc2626;
+      box-shadow: 0 0 30px rgba(220, 38, 38, 0.3);
+    }
+
+    .subscribe-content h1 {
+      font-size: 2rem;
+      font-weight: bold;
+      color: white;
+      margin-bottom: 1rem;
+    }
+
+    .subscribe-content p {
+      color: #cbd5e1;
+      font-size: 1.1rem;
+      margin-bottom: 1.5rem;
+      line-height: 1.6;
+    }
+
+    .subscribe-content .highlight {
+      color: #dc2626;
+      font-weight: bold;
+    }
+
+    .subscribe-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .subscribe-btn {
+      padding: 1rem;
+      border: none;
+      border-radius: 0.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .subscribe-btn-primary {
+      background: #dc2626;
+      color: white;
+    }
+
+    .subscribe-btn-primary:hover {
+      background: #b91c1c;
+      transform: scale(1.05);
+    }
+
+    .subscribe-btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: #cbd5e1;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .subscribe-btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+    }
+
+    .yt-badge {
+      display: inline-block;
+      background: #dc2626;
+      color: white;
+      padding: 0.25rem 0.75rem;
+      border-radius: 0.25rem;
+      font-size: 0.75rem;
+      font-weight: bold;
+      margin-bottom: 1rem;
+    }
+
+    .support-section {
+      margin-top: 2rem;
+      padding: 1.5rem;
+      background: #1e293b;
+      border-radius: 0.5rem;
+      text-align: center;
+    }
+
+    .support-section p {
+      color: #cbd5e1;
+      margin-bottom: 1rem;
+    }
+
+    .support-section a {
+      display: inline-block;
+      background: #dc2626;
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.5rem;
+      text-decoration: none;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+
+    .support-section a:hover {
+      background: #b91c1c;
+    }
+  </style>
+</head>
+<body>
+  <div id="access-denied" class="access-denied">
+    <h1>Access Denied</h1>
+  </div>
+
+  <div id="subscribe-modal" class="subscribe-modal">
+    <div class="subscribe-content">
+      <div class="yt-badge">🎥 SUBSCRIBE DULU!</div>
+      <h1>Tunggu Dulu Kak! 👋</h1>
+      <p>
+        Konten berkualitas ini gratis untuk Anda, tapi kami perlu <span class="highlight">dukungan Anda!</span>
+      </p>
+      <p style="font-size: 0.95rem; color: #94a3b8;">
+        Subscribe channel YouTube kami dulu, kemudian Anda bisa menonton video dengan player premium kami. Terima kasih telah mendukung! 💪
+      </p>
+      <div class="subscribe-buttons">
+        <a href="https://www.youtube.com/@beritajeketi48" target="_blank" class="subscribe-btn subscribe-btn-primary">
+          ✓ SUBSCRIBE YOUTUBE SEKARANG
+        </a>
+        <button id="continue-btn" class="subscribe-btn subscribe-btn-secondary">
+          Sudah Subscribe? Lanjutkan
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="header">
+      <h1>Custom YouTube Player</h1>
+      <p>YouTube dengan Kontrol Custom Penuh</p>
+    </div>
+
+    <div id="player-container" class="player-container">
+      <div id="youtube-player"></div>
+      <div class="protective-overlay" id="overlay"></div>
+
+      <div id="loading" class="loading">
+        <div class="loading-content">
+          <div class="spinner"></div>
+          <p class="loading-text">Loading video...</p>
+        </div>
+      </div>
+
+      <div class="watermark">
+        <span>videoplayeryt.com</span>
+      </div>
+
+      <button id="play-overlay" class="play-overlay visible">
+        <div class="play-button-large">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+        </div>
+      </button>
+
+      <div id="controls" class="controls">
+        <div class="progress-container">
+          <input type="range" id="progress" class="progress-bar" min="0" max="100" value="0">
+          <div class="time-display">
+            <span id="current-time">0:00</span>
+            <span id="duration">0:00</span>
+          </div>
+        </div>
+
+        <div class="control-buttons">
+          <div class="left-controls">
+            <button id="play-btn" class="control-btn" title="Play">
+              <svg id="play-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+              <svg id="pause-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                <rect x="6" y="4" width="4" height="16"></rect>
+                <rect x="14" y="4" width="4" height="16"></rect>
+              </svg>
+            </button>
+
+            <button id="skip-back" class="control-btn" title="Rewind 10s">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="19 20 9 12 19 4 19 20"></polygon>
+                <line x1="5" y1="19" x2="5" y2="5"></line>
+              </svg>
+            </button>
+
+            <button id="skip-forward" class="control-btn" title="Forward 10s">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="5 4 15 12 5 20 5 4"></polygon>
+                <line x1="19" y1="5" x2="19" y2="19"></line>
+              </svg>
+            </button>
+
+            <div class="volume-controls">
+              <button id="mute-btn" class="control-btn" title="Mute">
+                <svg id="volume-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                </svg>
+                <svg id="mute-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                  <line x1="23" y1="9" x2="17" y2="15"></line>
+                  <line x1="17" y1="9" x2="23" y2="15"></line>
+                </svg>
+              </button>
+              <input type="range" id="volume" class="volume-slider" min="0" max="100" value="100">
+              <span id="volume-text" class="volume-text">100%</span>
+            </div>
+          </div>
+
+          <div class="right-controls">
+            <div class="settings-container">
+              <button id="settings-btn" class="control-btn" title="Pengaturan">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="3"></circle>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+              </button>
+
+              <div id="settings-menu" class="settings-menu">
+                <div id="main-settings" class="main-settings">
+                  <div id="quality-header" class="settings-header">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 20h9"></path>
+                      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                    </svg>
+                    <span>Kualitas</span>
+                    <span id="current-quality-display" class="current-quality">Otomatis</span>
+                    <svg style="margin-left: auto;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                  </div>
+                </div>
+
+                <div id="quality-menu" class="quality-menu">
+                  <div id="quality-back" class="quality-back">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                    <span>Kualitas</span>
+                  </div>
+                  <div id="quality-options">
+                    <div class="quality-option active" data-quality="auto">
+                      <div class="quality-label">Otomatis</div>
+                      <svg class="quality-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                    </div>
+                    <div class="quality-option" data-quality="hd1080">
+                      <div class="quality-label">1080p60 <span class="quality-badge">HD</span></div>
+                      <svg class="quality-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                    </div>
+                    <div class="quality-option" data-quality="hd720">
+                      <div class="quality-label">720p60</div>
+                      <svg class="quality-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                    </div>
+                    <div class="quality-option" data-quality="medium">
+                      <div class="quality-label">360p</div>
+                      <svg class="quality-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                    </div>
+                    <div class="quality-option" data-quality="small">
+                      <div class="quality-label">144p</div>
+                      <svg class="quality-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button id="fullscreen-btn" class="control-btn" title="Fullscreen">
+              <svg id="fullscreen-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <polyline points="9 21 3 21 3 15"></polyline>
+                <line x1="21" y1="3" x2="14" y2="10"></line>
+                <line x1="3" y1="21" x2="10" y2="14"></line>
+              </svg>
+              <svg id="exit-fullscreen-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                <polyline points="4 14 10 14 10 20"></polyline>
+                <polyline points="20 10 14 10 14 4"></polyline>
+                <line x1="14" y1="10" x2="21" y2="3"></line>
+                <line x1="3" y1="21" x2="10" y2="14"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="support-section">
+      <p>Konten ini gratis karena dukungan dari Anda! 🙏</p>
+      <a href="https://www.youtube.com/@beritajeketi48" target="_blank">
+        ▶ DUKUNG TERUS - SUBSCRIBE YOUTUBE KAMI
+      </a>
+      <p style="margin-top: 1rem; font-size: 0.9rem; color: #94a3b8;">
+        Setiap subscribe membantu kami membuat konten lebih baik. Terima kasih!
+      </p>
+    </div>
+  </div>
+
+  <script>
+    // Subscribe Modal Handler
+    (function() {
+      var subscribeModal = document.getElementById('subscribe-modal');
+      var continueBtn = document.getElementById('continue-btn');
+      var subscribeStatus = localStorage.getItem('yt-subscribe-confirmed');
+
+      // Jika sudah pernah diklik "Lanjutkan", sembunyikan modal
+      if (subscribeStatus === 'true') {
+        subscribeModal.classList.add('hidden');
+      }
+
+      // Tombol "Sudah Subscribe? Lanjutkan"
+      continueBtn.addEventListener('click', function() {
+        localStorage.setItem('yt-subscribe-confirmed', 'true');
+        subscribeModal.classList.add('hidden');
+      });
+    })();
+
+    // Variables
+    var player;
+    var isPlaying = false;
+    var isMuted = false;
+    var volume = 100;
+    var duration = 0;
+    var controlsTimeout;
+    var updateInterval;
+
+    // DOM Elements
+    var playerContainer = document.getElementById('player-container');
+    var loadingEl = document.getElementById('loading');
+    var playOverlay = document.getElementById('play-overlay');
+    var controls = document.getElementById('controls');
+    var playBtn = document.getElementById('play-btn');
+    var playIcon = document.getElementById('play-icon');
+    var pauseIcon = document.getElementById('pause-icon');
+    var skipBack = document.getElementById('skip-back');
+    var skipForward = document.getElementById('skip-forward');
+    var muteBtn = document.getElementById('mute-btn');
+    var volumeIcon = document.getElementById('volume-icon');
+    var muteIcon = document.getElementById('mute-icon');
+    var volumeSlider = document.getElementById('volume');
+    var volumeText = document.getElementById('volume-text');
+    var progressBar = document.getElementById('progress');
+    var currentTimeEl = document.getElementById('current-time');
+    var durationEl = document.getElementById('duration');
+    var fullscreenBtn = document.getElementById('fullscreen-btn');
+    var fullscreenIcon = document.getElementById('fullscreen-icon');
+    var exitFullscreenIcon = document.getElementById('exit-fullscreen-icon');
+    var overlay = document.getElementById('overlay');
+    var accessDenied = document.getElementById('access-denied');
+
+    // Block DevTools keyboard shortcuts
+    function blockDevToolsKeys(e) {
+      // F12
+      if (e.key === 'F12' || e.keyCode === 123) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+      // Ctrl+Shift+I
+      if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.keyCode === 73)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+      // Ctrl+Shift+J
+      if (e.ctrlKey && e.shiftKey && (e.key === 'J' || e.key === 'j' || e.keyCode === 74)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+      // Ctrl+Shift+C
+      if (e.ctrlKey && e.shiftKey && (e.key === 'C' || e.key === 'c' || e.keyCode === 67)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+      // Ctrl+U
+      if (e.ctrlKey && (e.key === 'U' || e.key === 'u' || e.keyCode === 85)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+      // Cmd+Option+I (Mac)
+      if (e.metaKey && e.altKey && (e.key === 'I' || e.key === 'i' || e.keyCode === 73)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+      // Cmd+Option+J (Mac)
+      if (e.metaKey && e.altKey && (e.key === 'J' || e.key === 'j' || e.keyCode === 74)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+      // Cmd+Option+C (Mac)
+      if (e.metaKey && e.altKey && (e.key === 'C' || e.key === 'c' || e.keyCode === 67)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+      // Cmd+U (Mac)
+      if (e.metaKey && (e.key === 'U' || e.key === 'u' || e.keyCode === 85)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    }
+
+    // Detect DevTools via window size
+    var devToolsOpen = false;
+    var threshold = 160;
+
+    function detectDevTools() {
+      var widthThreshold = window.outerWidth - window.innerWidth > threshold;
+      var heightThreshold = window.outerHeight - window.innerHeight > threshold;
+      
+      if (widthThreshold || heightThreshold) {
+        if (!devToolsOpen) {
+          devToolsOpen = true;
+          window.close();
+          accessDenied.classList.add('visible');
+          document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0f172a;color:white;font-family:system-ui;"><h1>Access Denied</h1></div>';
+          window.location.href = 'about:blank';
+        }
+      } else {
+        devToolsOpen = false;
+      }
+    }
+
+    // Add event listeners for DevTools blocking
+    document.addEventListener('keydown', blockDevToolsKeys, true);
+    window.addEventListener('keydown', blockDevToolsKeys, true);
+    setInterval(detectDevTools, 500);
+
+    // Block right click
+    document.addEventListener('contextmenu', function(e) {
+      e.preventDefault();
+      return false;
+    });
+
+    // Format time
+    function formatTime(seconds) {
+      if (!seconds || isNaN(seconds)) return '0:00';
+      var hours = Math.floor(seconds / 3600);
+      var minutes = Math.floor((seconds % 3600) / 60);
+      var secs = Math.floor(seconds % 60);
+      
+      if (hours > 0) {
+        return hours + ':' + String(minutes).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+      }
+      return minutes + ':' + String(secs).padStart(2, '0');
+    }
+
+    // Load YouTube API
+    var tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    var firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+    // YouTube API Ready
+    window.onYouTubeIframeAPIReady = function() {
+      player = new YT.Player('youtube-player', {
+        height: '100%',
+        width: '100%',
+        videoId: '79UZWTkYlgg',
+        playerVars: {
+          'playsinline': 1,
+          'controls': 0,
+          'disablekb': 1,
+          'fs': 0,
+          'iv_load_policy': 3,
+          'modestbranding': 1,
+          'rel': 0,
+          'showinfo': 0,
+          'cc_load_policy': 0,
+          'origin': window.location.origin
+        },
+        events: {
+          'onReady': onPlayerReady,
+          'onStateChange': onPlayerStateChange
+        }
+      });
+    };
+
+    function onPlayerReady(event) {
+      loadingEl.classList.add('hidden');
+      duration = player.getDuration();
+      durationEl.textContent = formatTime(duration);
+      progressBar.max = duration;
+      player.setVolume(volume);
+
+      // Update progress
+      updateInterval = setInterval(function() {
+        if (player && player.getCurrentTime) {
+          var currentTime = player.getCurrentTime();
+          progressBar.value = currentTime;
+          currentTimeEl.textContent = formatTime(currentTime);
+        }
+      }, 500);
+    }
+
+    function onPlayerStateChange(event) {
+      if (event.data === YT.PlayerState.PLAYING) {
+        isPlaying = true;
+        playIcon.style.display = 'none';
+        pauseIcon.style.display = 'block';
+        playOverlay.classList.remove('visible');
+      } else if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.ENDED) {
+        isPlaying = false;
+        playIcon.style.display = 'block';
+        pauseIcon.style.display = 'none';
+        if (event.data === YT.PlayerState.ENDED) {
+          playOverlay.classList.add('visible');
+        }
+      }
+    }
+
+    // Play/Pause
+    function togglePlay() {
+      if (player) {
+        if (isPlaying) {
+          player.pauseVideo();
+        } else {
+          player.playVideo();
+        }
+      }
+    }
+
+    playBtn.addEventListener('click', togglePlay);
+    playOverlay.addEventListener('click', togglePlay);
+    overlay.addEventListener('click', togglePlay);
+
+    // Skip backward
+    skipBack.addEventListener('click', function() {
+      if (player) {
+        var currentTime = player.getCurrentTime();
+        player.seekTo(Math.max(0, currentTime - 10), true);
+      }
+    });
+
+    // Skip forward
+    skipForward.addEventListener('click', function() {
+      if (player) {
+        var currentTime = player.getCurrentTime();
+        player.seekTo(Math.min(duration, currentTime + 10), true);
+      }
+    });
+
+    // Volume
+    volumeSlider.addEventListener('input', function() {
+      volume = parseInt(this.value);
+      if (player) {
+        player.setVolume(volume);
+        player.unMute();
+      }
+      isMuted = false;
+      volumeIcon.style.display = 'block';
+      muteIcon.style.display = 'none';
+      volumeText.textContent = volume + '%';
+    });
+
+    // Mute
+    muteBtn.addEventListener('click', function() {
+      if (player) {
+        if (isMuted) {
+          player.unMute();
+          player.setVolume(volume);
+          isMuted = false;
+          volumeIcon.style.display = 'block';
+          muteIcon.style.display = 'none';
+        } else {
+          player.mute();
+          isMuted = true;
+          volumeIcon.style.display = 'none';
+          muteIcon.style.display = 'block';
+        }
+      }
+    });
+
+    // Progress bar
+    progressBar.addEventListener('input', function() {
+      if (player) {
+        player.seekTo(parseFloat(this.value), true);
+      }
+    });
+
+    // Fullscreen
+    fullscreenBtn.addEventListener('click', function() {
+      if (!document.fullscreenElement) {
+        playerContainer.requestFullscreen().catch(function(err) {
+          console.log('Fullscreen error:', err);
+        });
+      } else {
+        document.exitFullscreen();
+      }
+    });
+
+    document.addEventListener('fullscreenchange', function() {
+      if (document.fullscreenElement) {
+        fullscreenIcon.style.display = 'none';
+        exitFullscreenIcon.style.display = 'block';
+      } else {
+        fullscreenIcon.style.display = 'block';
+        exitFullscreenIcon.style.display = 'none';
+      }
+    });
+
+    // Show/hide controls on mouse move
+    playerContainer.addEventListener('mousemove', function() {
+      controls.classList.remove('hidden');
+      clearTimeout(controlsTimeout);
+      controlsTimeout = setTimeout(function() {
+        if (isPlaying) {
+          controls.classList.add('hidden');
+        }
+      }, 3000);
+    });
+
+    playerContainer.addEventListener('mouseleave', function() {
+      if (isPlaying) {
+        controls.classList.add('hidden');
+      }
+    });
+
+    // Keyboard controls
+    document.addEventListener('keydown', function(e) {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        togglePlay();
+      } else if (e.code === 'ArrowLeft') {
+        if (player) {
+          var currentTime = player.getCurrentTime();
+          player.seekTo(Math.max(0, currentTime - 10), true);
+        }
+      } else if (e.code === 'ArrowRight') {
+        if (player) {
+          var currentTime = player.getCurrentTime();
+          player.seekTo(Math.min(duration, currentTime + 10), true);
+        }
+      } else if (e.code === 'KeyM') {
+        muteBtn.click();
+      } else if (e.code === 'KeyF') {
+        fullscreenBtn.click();
+      }
+    });
+
+    // Settings Menu
+    var settingsBtn = document.getElementById('settings-btn');
+    var settingsMenu = document.getElementById('settings-menu');
+    var mainSettings = document.getElementById('main-settings');
+    var qualityMenu = document.getElementById('quality-menu');
+    var qualityHeader = document.getElementById('quality-header');
+    var qualityBack = document.getElementById('quality-back');
+    var qualityOptions = document.querySelectorAll('.quality-option');
+    var currentQualityDisplay = document.getElementById('current-quality-display');
+    var currentQuality = 'auto';
+
+    // Quality labels mapping
+    var qualityLabels = {
+      'auto': 'Otomatis',
+      'hd1080': '1080p60',
+      'hd720': '720p60',
+      'medium': '360p',
+      'small': '144p'
+    };
+
+    // Toggle settings menu
+    settingsBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      settingsMenu.classList.toggle('visible');
+      // Reset to main menu when opening
+      mainSettings.style.display = 'block';
+      qualityMenu.classList.remove('visible');
+    });
+
+    // Open quality submenu
+    qualityHeader.addEventListener('click', function(e) {
+      e.stopPropagation();
+      mainSettings.style.display = 'none';
+      qualityMenu.classList.add('visible');
+    });
+
+    // Back to main settings
+    qualityBack.addEventListener('click', function(e) {
+      e.stopPropagation();
+      qualityMenu.classList.remove('visible');
+      mainSettings.style.display = 'block';
+    });
+
+    // Select quality
+    qualityOptions.forEach(function(option) {
+      option.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var quality = this.getAttribute('data-quality');
+        
+        // Remove active class from all options
+        qualityOptions.forEach(function(opt) {
+          opt.classList.remove('active');
+        });
+        
+        // Add active class to selected option
+        this.classList.add('active');
+        
+        // Update current quality
+        currentQuality = quality;
+        currentQualityDisplay.textContent = qualityLabels[quality];
+        
+        // Set video quality
+        if (player && player.setPlaybackQuality) {
+          if (quality === 'auto') {
+            player.setPlaybackQuality('default');
+          } else {
+            player.setPlaybackQuality(quality);
+          }
+        }
+        
+        // Close menu
+        settingsMenu.classList.remove('visible');
+      });
+    });
+
+    // Close settings when clicking outside
+    document.addEventListener('click', function(e) {
+      if (!settingsMenu.contains(e.target) && e.target !== settingsBtn) {
+        settingsMenu.classList.remove('visible');
+      }
+    });
+
+    // Prevent settings menu from closing when clicking inside
+    settingsMenu.addEventListener('click', function(e) {
+      e.stopPropagation();
+    });
+  </script>
+</body>
+</html>
